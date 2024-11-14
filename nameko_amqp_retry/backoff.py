@@ -1,5 +1,4 @@
 import random
-from pkg_resources import parse_version
 
 import six
 from kombu import Connection, __version__ as kombu_version
@@ -10,9 +9,6 @@ from nameko.constants import AMQP_URI_CONFIG_KEY, DEFAULT_RETRY_POLICY
 from nameko.extensions import SharedExtension
 
 EXPIRY_GRACE_PERIOD = 5000  # ms
-
-
-KOMBU_PRE_4_3 = parse_version(kombu_version) < parse_version('4.3.0')
 
 
 def get_backoff_queue_name(expiration):
@@ -133,16 +129,6 @@ class BackoffPublisher(SharedExtension):
         expiration_seconds = float(expiration) / 1000
 
         amqp_uri = self.container.config[AMQP_URI_CONFIG_KEY]
-
-        # force redeclaration;
-        # In kombu versions prior to 4.3.0, the publisher will skip declaration if
-        # the entity has previously been declared by the same connection.
-        # (see https://github.com/celery/kombu/pull/884)
-        conn = Connection(amqp_uri)
-        if KOMBU_PRE_4_3:  # pragma: no cover
-            maybe_declare(
-                queue, conn.channel(), retry=True, **DEFAULT_RETRY_POLICY
-            )
 
         # republish to appropriate backoff queue
         publisher = Publisher(amqp_uri)
